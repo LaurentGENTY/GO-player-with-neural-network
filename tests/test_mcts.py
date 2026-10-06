@@ -76,3 +76,20 @@ def test_rollout_mcts_returns_a_legal_move():
     player.newGame(Board._BLACK)
     move = player.getPlayerMove()
     assert Board.name_to_flat(move) in Board().legal_moves()
+
+
+def test_root_visits_are_exposed_after_search(net):
+    player = mcts(net, max_simulations=200)
+    player.newGame(Board._BLACK)
+    feed(player, CAPTURE_SETUP)
+    move = player.getPlayerMove()
+    visits = player.last_root_visits
+    assert sum(visits.values()) == 200
+    assert max(visits, key=visits.get) == Board.name_to_flat(move)
+
+
+def test_root_visits_are_empty_for_book_moves(net):
+    player = mcts(net, max_simulations=50, opening_book=True)
+    player.newGame(Board._BLACK)
+    player.getPlayerMove()
+    assert player.last_root_visits == {}

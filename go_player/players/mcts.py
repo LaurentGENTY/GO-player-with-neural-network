@@ -101,6 +101,7 @@ class MCTSPlayer(PlayerInterface):
         self._board = Board(komi)
         self._name = name
         self.last_simulations = 0
+        self.last_root_visits: dict[int, int] = {}  # flat move -> visits, for heatmaps
 
     def getPlayerName(self) -> str:
         return self._name
@@ -110,6 +111,7 @@ class MCTSPlayer(PlayerInterface):
 
     def getPlayerMove(self) -> str:
         self.last_simulations = 0
+        self.last_root_visits = {}
         if self._board.is_game_over():
             return "PASS"
         move = self._choose()
@@ -144,6 +146,7 @@ class MCTSPlayer(PlayerInterface):
             sims += len(batch)
             self._backup(batch)
         self.last_simulations = sims
+        self.last_root_visits = {child.move: child.n for child in root.children}
         if not root.children:
             legal = [m for m in board.legal_moves() if m != -1]
             return self._rng.choice(legal) if legal else -1
