@@ -103,7 +103,7 @@ def _results_table(results: list[PuzzleResult]) -> str:
     solved = sum(r.solution.correct for r in results)
     ab_solved = sum(r.alphabeta_correct for r in results)
     lines.append("")
-    lines.append(f"MCTS solved {solved}/{len(results)}, AlphaBeta solved {ab_solved}/{len(results)}.")
+    lines.append(f"MCTS solved {solved}/{len(results)}, Alpha-Beta solved {ab_solved}/{len(results)}.")
     return "\n".join(lines) + "\n"
 
 

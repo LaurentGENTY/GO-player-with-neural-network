@@ -1,32 +1,64 @@
-# Introduction
+# 9x9 Go AI: neural network + tree search
 
-Project made by GENTY Laurent and CHATAIGNER Johan
+![MCTS solving Go puzzles: visit heatmap, move played, scorecard](media/puzzles/reel.gif)
 
-# Algorithms
+A tech-watch project on game AI: a 9x9 Go player in Python. A convolutional neural network (Keras)
+estimates who wins a position, and two search engines use it:
 
-At first, we only implemented MinMax algorithm. But in GO, the size of the search tree is very huge. Indeed, compared to Chess, the combinatorics are enormous so we must use a better algorithm. Thats why during the majority of the project, we used Alpha Beta algorithm. In fact, thanks to alpha-beta cuts, we are reducing a lot the number of "useless" nodes. With the time we are saving, we are able to increase the depth of the research during the game : in the early game, there are too much possibilities and we have a depth of 2. But during the mid game, 20-40 turns, we want to establish strategies and we want to see the further we can, so we deepen the research (depth 3) and in very late game we go even deeper because the combinatorics are plunging and it is not a lot of time consuming. But the problem with this method: we do not have any time management, which is not a good idea in duels where we only have 5 minutes maximum for each game and. Here in GO, where the combinatorics are huge and increasing by 1 the depth can explodes the time we consume during AlphaBeta.
+- **Alpha-Beta** with iterative deepening, evaluating one position per call;
+- **Monte-Carlo tree search** (UCT) that evaluates leaves in batches with the same network, about
+  12,000 simulations per 5-second move.
 
-Thanks to Iterative Deepening method, we are able to handle this issue. We approximate a 9*9 board GO game with 60 moves for each players (with suicides and captures, we are able to do more than 9*9 moves). It means we have 5 seconds maximum for each move. Like that, we can adjust our depth depending on the progression of the game. We think that is the best compromise because we can see adjust depth depending on when we are during the game but by taking only 5 seconds during the whole game for each moves.
+An arena makes them play each other and GnuGo, and tactical puzzles double as tests and as the videos above.
 
-# Heuristics
+## Puzzles
 
-In order to use algorithms, we must know **how to evaluate a specific board**. At first we dove into the evaluation of the board:
-- global positions
-- overall positions
-- good patterns
-- threats
-- ...
+Each puzzle is a pytest test: MCTS must find the answer with a fixed seed and 3,000 simulations.
+Positions the network does not understand are kept as strict `xfail` tests and shown as known limits.
 
-But the more we deepen into our heuristic, the more it was difficult to handle every situation. It is known that GO has no good heuristic found yet, so we think it is not the good idea to evaluate the board like that.
+| Puzzle | Answer | MCTS | Alpha-Beta |
+|---|---|---|---|
+| Capture the two stones | E6 | E6 ✅ | E6 ✅ |
+| Take the bigger capture | E2 | E2 ✅ | E2 ✅ |
+| Connect before White cuts | E5 | E5 ✅ | E5 ✅ |
+| Escape from atari | E6 | G6 ❌ | H5 ❌ |
+| Make two eyes | B1 | E6 ❌ | E6 ❌ |
+| Kill the group | B1 | F6 ❌ | F6 ❌ |
+| Trap the stone in a net | F6 | F4 ❌ | F4 ❌ |
 
-So we took the decision to use the **CNN model** developed during the previous lab work: from a specific board, it computes the probability for blacks and whites to win. We found more interesting to evaluate a board like that because basically the model does not compute the positions of blacks and whites pawns, it only predicts the probability of winning based on the training set, where for each data (each board), we played 100 games and both players did the best moves resulting a number of wins for each players. Which means, during our AlphaBeta (or Iterative Deepening) we are able to evaluate a board and to know if this is a good thing to make this move.
+Known limit: the network never learned life and death, and no amount of search makes up for it.
 
-But we had to do more. Indeed, our neural network takes our board inputs in a specific format. Which means we have to format our data at each evaluation of our board in order to make predictions. But formatting the data is in O(n²) with n the board size in length. As we previously said, the combinatorics are very huge which means doing the board formatting is very heavy and time consuming (which is not a good idea for Iterative Deepening). That is the reason why we also used a variable corresponding to the neural network board where we push and pop new pawns on it. Thanks to that, we are able to make predictions much faster than before.
+## Arena
 
-# Future improvements
+| Match | Games | MCTS wins | Alpha-Beta wins | Draws (move cap) | MCTS wins as Black / White |
+|---|---|---|---|---|---|
+| MCTS vs Alpha-Beta | 18 | 9 | 7 | 2 | 6 / 3 |
 
-In order to improve our player, here is a non exhaustive list of possible things to do:
-- dynamic time per round based on how many time left: if we arrive at very late game, we must manage our time preciously, so if we have 30 seconds left but approximately 10 moves to play, we must reduce our time per round. We could also compute time dynamically with the speed of the algorithm (nodes / second) at a given moment (preivous move, mean, ...)
-- improve heuristic: even though our heuristic works, we should probably handle by hand few threats and dangerous patterns by hand in order to avoid serious situations for our player
-- clean our code (!!)
-- try a Monte-Carlo heuristic for our player
+1 s per move, no komi, colors alternated every game. Against GnuGo level 1, MCTS still loses clearly
+([full game](media/mcts-vs-gnugo.mp4)).
+
+## Quick start
+
+Requires [uv](https://docs.astral.sh/uv/) and, for the GnuGo opponent, `brew install gnu-go`.
+
+```bash
+uv sync
+uv run go-player play --black mcts --white random --time 2
+uv run go-player puzzles
+uv run go-player record --black mcts --white gnugo
+uv run go-player arena --games 20 --time 1
+uv run pytest
+```
+
+Players: `random`, `gnugo`, `alphabeta`, `mcts` (network at the leaves), `mcts-rollout` (random playouts, baseline).
+
+## Layout
+
+- `go_player/`: rules engine, value network, players, arena, recorder, puzzles, CLI
+- `tests/`: pytest suite (rules, network, both searches, arena, recorder, puzzles)
+- `media/`: generated GIFs, videos and results
+- `GO/`, `ML/`: the original implementation and the network training notebook
+
+## Credits
+
+Laurent Genty and Johan Chataigner. Rules engine `Goban.py` by Laurent Simon (MIT).
