@@ -23,3 +23,30 @@ def test_record_game_at_move_cap(tmp_path):
     assert record.score == "move cap"
     assert Image.open(gif).n_frames == 7  # empty board + 6 moves
     assert mp4.stat().st_size > 0
+
+
+def test_heatmap_marks_the_most_visited_point():
+    from go_player.record import render_frame
+
+    board = board_with(CAPTURE_SETUP)
+    e6 = Board.name_to_flat("E6")
+    image = render_frame(board, "A vs B", "thinking", None, None, heat={e6: 0.6, Board.name_to_flat("A1"): 0.05})
+    x, y = _center(4, 5)
+    r, g, b = image.getpixel((x, y - 12))  # above the percentage label
+    assert r > 150 and g < 120  # strongly red where most visits went
+    assert image.getpixel((x + 60, y + 60)) == (220, 179, 92)  # empty wood stays untouched
+
+
+def test_title_card_size():
+    from go_player.record import render_title_card
+
+    assert render_title_card("Capture the two stones", "Black to play").size == (448, 528)
+
+
+def test_write_media(tmp_path):
+    from go_player.record import write_media
+
+    frames = [render_frame(Board(), "t", f"frame {i}", None, None) for i in range(3)]  # identical GIF frames get merged
+    gif, mp4 = write_media(frames, [600, 600, 3000], tmp_path / "clip")
+    assert Image.open(gif).n_frames == 3
+    assert mp4.stat().st_size > 0

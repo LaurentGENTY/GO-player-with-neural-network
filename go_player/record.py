@@ -29,7 +29,46 @@ def _center(col: int, lin: int) -> tuple[int, int]:
     return GX + STEP * col, GY + STEP * (Board._BOARDSIZE - 1 - lin)
 
 
-def render_frame(board: Board, title: str, caption: str, last_move: int | None, p_black: float | None) -> Image.Image:
+def _draw_heat(image: Image.Image, heat: dict[int, float]) -> Image.Image:
+    """Red discs sized and shaded by each move's share of the search visits."""
+    peak = max(heat.values(), default=0.0)
+    if peak <= 0:
+        return image
+    overlay = Image.new("RGBA", image.size, (0, 0, 0, 0))
+    draw = ImageDraw.Draw(overlay)
+    for move, share in heat.items():
+        if move == -1 or share <= 0:
+            continue
+        x, y = _center(*Board.unflatten(move))
+        rel = share / peak
+        radius = int(6 + 14 * rel)
+        draw.ellipse((x - radius, y - radius, x + radius, y + radius), fill=(*RED, int(40 + 210 * rel)))
+    image = Image.alpha_composite(image.convert("RGBA"), overlay).convert("RGB")
+    draw = ImageDraw.Draw(image)
+    top = sorted(((share, move) for move, share in heat.items() if move != -1), reverse=True)[:3]
+    for share, move in top:
+        x, y = _center(*Board.unflatten(move))
+        draw.text((x, y), f"{share:.0%}", anchor="mm", fill="white", font=_font(12), stroke_width=2, stroke_fill="black")
+    return image
+
+
+def render_title_card(title: str, subtitle: str) -> Image.Image:
+    image = Image.new("RGB", (WIDTH, HEIGHT), "white")
+    draw = ImageDraw.Draw(image)
+    draw.rectangle((0, HEIGHT // 2 - 70, WIDTH, HEIGHT // 2 + 70), fill=WOOD)
+    draw.text((WIDTH // 2, HEIGHT // 2 - 18), title, anchor="mm", fill="black", font=_font(24))
+    draw.text((WIDTH // 2, HEIGHT // 2 + 22), subtitle, anchor="mm", fill=LINE, font=_font(16))
+    return image
+
+
+def render_frame(
+    board: Board,
+    title: str,
+    caption: str,
+    last_move: int | None,
+    p_black: float | None,
+    heat: dict[int, float] | None = None,
+) -> Image.Image:
     image = Image.new("RGB", (WIDTH, HEIGHT), "white")
     draw = ImageDraw.Draw(image)
     draw.text((16, 10), title, fill="black", font=_font(20))
@@ -53,6 +92,9 @@ def render_frame(board: Board, title: str, caption: str, last_move: int | None, 
         x, y = _center(*Board.unflatten(flat))
         fill = "black" if color == Board._BLACK else "white"
         draw.ellipse((x - STONE_R, y - STONE_R, x + STONE_R, y + STONE_R), fill=fill, outline=(51, 51, 51), width=2)
+    if heat:
+        image = _draw_heat(image, heat)
+        draw = ImageDraw.Draw(image)
     if last_move is not None and last_move != -1:
         x, y = _center(*Board.unflatten(last_move))
         draw.ellipse((x - 8, y - 8, x + 8, y + 8), outline=RED, width=3)
@@ -100,19 +142,20 @@ def record_game(
             caption += f"  -  {_result_text(record)}"
         frames.append(render_frame(board, title, caption, move, p_black(board)))
 
+    gif, mp4 = write_media(frames, [frame_ms] * (len(frames) - 1) + [final_ms], out_stem)
+    return gif, mp4, record
+
+
+def write_media(frames: list[Image.Image], durations_ms: list[int], out_stem: Path) -> tuple[Path, Path]:
     out_stem = Path(out_stem)
     out_stem.parent.mkdir(parents=True, exist_ok=True)
     gif = out_stem.with_suffix(".gif")
-    frames[0].save(
-        gif, save_all=True, append_images=frames[1:], loop=0, optimize=True,
-        duration=[frame_ms] * (len(frames) - 1) + [final_ms],
-    )
+    frames[0].save(gif, save_all=True, append_images=frames[1:], loop=0, optimize=True, duration=durations_ms)
     mp4 = out_stem.with_suffix(".mp4")
-    repeat = max(1, round(frame_ms * VIDEO_FPS / 1000))
-    final_repeat = max(1, round(final_ms * VIDEO_FPS / 1000))
+    # The MP4 has a fixed frame rate, so each frame is repeated to match its GIF duration.
     with imageio.get_writer(mp4, fps=VIDEO_FPS, codec="libx264", macro_block_size=16) as writer:
-        for i, frame in enumerate(frames):
+        for frame, ms in zip(frames, durations_ms, strict=True):
             array = np.asarray(frame)
-            for _ in range(final_repeat if i == len(frames) - 1 else repeat):
+            for _ in range(max(1, round(ms * VIDEO_FPS / 1000))):
                 writer.append_data(array)
-    return gif, mp4, record
+    return gif, mp4
