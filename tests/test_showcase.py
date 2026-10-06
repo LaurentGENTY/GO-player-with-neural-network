@@ -14,3 +14,13 @@ def test_render_puzzles_writes_clips_reel_and_results(net, tmp_path):
         assert (tmp_path / f"{name}.mp4").stat().st_size > 0
     table = (tmp_path / "results.md").read_text()
     assert f"| {solved.title} |" in table and "1/2" in table
+
+
+def test_scorecard_title_and_footnote_are_configurable():
+    from go_player.puzzles import Solution
+    from go_player.showcase import PuzzleResult, render_scorecard
+
+    results = [PuzzleResult(PUZZLES[0], Solution("E6", {}, 1, True), "E6")]
+    default = render_scorecard(results)
+    custom = render_scorecard(results, title="MCTS on Go puzzles", footnote="Known limit: life and death")
+    assert custom.size == default.size and custom.tobytes() != default.tobytes()

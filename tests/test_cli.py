@@ -56,3 +56,7 @@ def test_puzzles_command_rejects_unknown_puzzle():
     with pytest.raises(SystemExit) as exc:
         main(["puzzles", "--only", "nope"])
     assert exc.value.code == 2
+
+
+def test_make_player_accepts_a_display_name():
+    assert make_player("random", seed=0, time_budget=1.0, name="Neutral").getPlayerName() == "Neutral"

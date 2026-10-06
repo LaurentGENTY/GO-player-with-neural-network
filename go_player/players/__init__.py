@@ -7,7 +7,16 @@ NET_KINDS = {"alphabeta", "mcts"}
 DEFAULT_MATCHES = [("mcts", "alphabeta"), ("mcts", "mcts-rollout"), ("mcts", "gnugo"), ("alphabeta", "gnugo")]
 
 
-def make_player(kind: str, *, seed: int | None, time_budget: float, komi: float = 0.0, value_net=None) -> PlayerInterface:
+def make_player(
+    kind: str, *, seed: int | None, time_budget: float, komi: float = 0.0, value_net=None, name: str | None = None,
+) -> PlayerInterface:
+    player = _make_player(kind, seed=seed, time_budget=time_budget, komi=komi, value_net=value_net)
+    if name is not None:
+        player._name = name  # every player stores its display name in _name
+    return player
+
+
+def _make_player(kind: str, *, seed: int | None, time_budget: float, komi: float, value_net) -> PlayerInterface:
     # Imports are local so that `random`/`gnugo` games never import TensorFlow.
     if kind == "random":
         from go_player.players.random_player import RandomPlayer

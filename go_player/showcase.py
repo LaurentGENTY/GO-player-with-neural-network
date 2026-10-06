@@ -63,19 +63,24 @@ def puzzle_clip(result: PuzzleResult) -> list[tuple[Image.Image, int]]:
     ]
 
 
-def render_scorecard(results: list[PuzzleResult]) -> Image.Image:
+DEFAULT_SCORECARD_TITLE = "MCTS + 2020 CNN on Go puzzles"
+DEFAULT_FOOTNOTE = "Known limit: the 2020 network never learned life and death"
+
+
+def render_scorecard(
+    results: list[PuzzleResult], title: str = DEFAULT_SCORECARD_TITLE, footnote: str = DEFAULT_FOOTNOTE,
+) -> Image.Image:
     image = Image.new("RGB", (WIDTH, HEIGHT), "white")
     draw = ImageDraw.Draw(image)
     solved = sum(r.solution.correct for r in results)
-    draw.text((WIDTH // 2, 48), "MCTS + 2020 CNN on Go puzzles", anchor="mm", fill="black", font=_font(20))
+    draw.text((WIDTH // 2, 48), title, anchor="mm", fill="black", font=_font(20))
     draw.text((WIDTH // 2, 84), f"{solved}/{len(results)} solved", anchor="mm", fill=LINE, font=_font(18))
     for i, r in enumerate(results):
         y = 136 + i * 40
         draw.text((32, y), r.puzzle.title, anchor="lm", fill="black", font=_font(16))
         ok = r.solution.correct
         draw.text((WIDTH - 32, y), "SOLVED" if ok else "MISSED", anchor="rm", fill=GREEN if ok else RED, font=_font(16))
-    draw.text((WIDTH // 2, HEIGHT - 40), "Known limit: the 2020 network never learned life and death",
-              anchor="mm", fill=LINE, font=_font(12))
+    draw.text((WIDTH // 2, HEIGHT - 40), footnote, anchor="mm", fill=LINE, font=_font(12))
     return image
 
 
