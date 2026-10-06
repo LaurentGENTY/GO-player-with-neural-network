@@ -45,3 +45,14 @@ def test_missing_gnugo_fails_before_any_game(monkeypatch, capsys):
     monkeypatch.setattr(ValueNet, "load", classmethod(lambda cls, *a: pytest.fail("network loaded before gnugo check")))
     assert main(["arena", "--match", "mcts:random", "--match", "random:gnugo", "--games", "1"]) == 1
     assert "brew install gnu-go" in capsys.readouterr().err
+
+
+def test_puzzles_command_writes_reel(tmp_path):
+    assert main(["puzzles", "--only", "capture", "--simulations", "300", "--out", str(tmp_path)]) == 0
+    assert (tmp_path / "reel.gif").exists() and (tmp_path / "results.md").exists()
+
+
+def test_puzzles_command_rejects_unknown_puzzle():
+    with pytest.raises(SystemExit) as exc:
+        main(["puzzles", "--only", "nope"])
+    assert exc.value.code == 2

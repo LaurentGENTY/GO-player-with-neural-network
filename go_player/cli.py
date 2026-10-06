@@ -39,6 +39,12 @@ def _parser() -> argparse.ArgumentParser:
     record.add_argument("--white", choices=PLAYER_KINDS, required=True)
     record.add_argument("--out", type=Path, default=Path("media"))
     common(record)
+
+    from go_player.puzzles import PUZZLE_SIMULATIONS, PUZZLES
+    puzzles = sub.add_parser("puzzles", help="solve the tactical puzzles and render clips, reel and results.md")
+    puzzles.add_argument("--only", choices=[p.name for p in PUZZLES], action="append", help="repeatable")
+    puzzles.add_argument("--simulations", type=int, default=PUZZLE_SIMULATIONS)
+    puzzles.add_argument("--out", type=Path, default=Path("media/puzzles"))
     return parser
 
 
@@ -50,6 +56,17 @@ def _load_net(kinds, always: bool = False):
 
 
 def _run(args) -> int:
+    if args.command == "puzzles":
+        from go_player.nn import ValueNet
+        from go_player.puzzles import PUZZLES
+        from go_player.showcase import render_puzzles
+        selected = [p for p in PUZZLES if not args.only or p.name in args.only]
+        results = render_puzzles(selected, ValueNet.load(), args.out, simulations=args.simulations)
+        for r in results:
+            print(f"{r.puzzle.name}: MCTS {r.solution.move} {'solved' if r.solution.correct else 'missed'}")
+        print(f"Reel: {args.out / 'reel.gif'}")
+        return 0
+
     kinds = [k for pair in args.match or DEFAULT_MATCHES for k in pair] if args.command == "arena" \
         else [args.black, args.white]
     if "gnugo" in kinds:
