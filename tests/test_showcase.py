@@ -24,3 +24,10 @@ def test_scorecard_title_and_footnote_are_configurable():
     default = render_scorecard(results)
     custom = render_scorecard(results, title="MCTS on Go puzzles", footnote="Known limit: life and death")
     assert custom.size == default.size and custom.tobytes() != default.tobytes()
+
+
+def test_default_scorecard_and_results_have_no_dates():
+    from go_player.showcase import DEFAULT_FOOTNOTE, DEFAULT_SCORECARD_TITLE, _results_table
+
+    assert "2020" not in DEFAULT_SCORECARD_TITLE + DEFAULT_FOOTNOTE
+    assert "2020" not in _results_table([]) and "2026" not in _results_table([])

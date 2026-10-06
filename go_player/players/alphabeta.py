@@ -21,7 +21,7 @@ class AlphaBetaPlayer(PlayerInterface):
         opening_book: bool = True,
         komi: float = 0.0,
         max_depth: int = 10,
-        name: str = "AlphaBeta-2020",
+        name: str = "Alpha-Beta",
     ):
         self._net = value_net
         self._time_budget = time_budget

@@ -63,8 +63,8 @@ def puzzle_clip(result: PuzzleResult) -> list[tuple[Image.Image, int]]:
     ]
 
 
-DEFAULT_SCORECARD_TITLE = "MCTS + 2020 CNN on Go puzzles"
-DEFAULT_FOOTNOTE = "Known limit: the 2020 network never learned life and death"
+DEFAULT_SCORECARD_TITLE = "MCTS on Go puzzles"
+DEFAULT_FOOTNOTE = "Known limit: the network never learned life and death"
 
 
 def render_scorecard(
@@ -94,7 +94,7 @@ def _mark(move: str, ok: bool) -> str:
 
 def _results_table(results: list[PuzzleResult]) -> str:
     lines = [
-        "| Puzzle | Answer | MCTS 2026 | AlphaBeta 2020 |",
+        "| Puzzle | Answer | MCTS | Alpha-Beta |",
         "|---|---|---|---|",
     ]
     for r in results:
@@ -125,7 +125,7 @@ def render_puzzles(
     reel = [frame for r in results if r.solution.correct for frame in puzzle_clip(r)]
     missed = [r for r in results if not r.solution.correct]
     if missed:
-        reel.append((render_title_card("Known limits", "where the 2020 network goes wrong"), CARD_MS))
+        reel.append((render_title_card("Known limits", "where the network goes wrong"), CARD_MS))
         for r in missed:
             reel += _heat_and_move_frames(r, LIMIT_HEAT_MS, LIMIT_MOVE_MS)
     reel.append((render_scorecard(results), SCORECARD_MS))

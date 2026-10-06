@@ -46,3 +46,7 @@ def test_alphabeta_does_not_pass_when_losing(net):
     player.newGame(Board._BLACK)
     feed(player, BLACK_LOSING_AFTER_PASS)
     assert player.getPlayerMove() != "PASS"
+
+
+def test_default_display_name_is_neutral(net):
+    assert alphabeta(net).getPlayerName() == "Alpha-Beta"

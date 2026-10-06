@@ -14,7 +14,7 @@ def _match(text: str) -> tuple[str, str]:
 
 
 def _parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="go-player", description="9x9 Go: 2020 Alpha-Beta vs 2026 MCTS")
+    parser = argparse.ArgumentParser(prog="go-player", description="9x9 Go: Alpha-Beta and MCTS guided by a CNN")
     sub = parser.add_subparsers(dest="command", required=True)
 
     def common(p: argparse.ArgumentParser) -> None:
