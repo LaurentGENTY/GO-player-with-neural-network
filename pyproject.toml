@@ -1,0 +1,32 @@
+[project]
+name = "go-player"
+version = "2.0.0"
+description = "9x9 Go player: the 2020 Alpha-Beta + CNN value network, revived with MCTS"
+readme = "README.md"
+requires-python = ">=3.11,<3.14"
+authors = [{ name = "Laurent Genty" }, { name = "Johan Chataigner" }]
+dependencies = [
+    "numpy>=1.26",
+    "tensorflow>=2.16",
+    "h5py>=3.10",
+    "pillow>=10.1",
+    "imageio[ffmpeg]>=2.34",
+]
+
+[project.scripts]
+go-player = "go_player.cli:main"
+
+[dependency-groups]
+dev = ["pytest>=8"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["go_player"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["tests"]
+markers = ["gnugo: needs the gnugo binary in PATH (brew install gnu-go)"]
