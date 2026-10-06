@@ -18,6 +18,7 @@ MARGIN = 36  # wood around the grid, room for coordinates
 STONE_R = 19
 WOOD, LINE, RED = (220, 179, 92), (60, 40, 20), (192, 57, 43)
 VIDEO_FPS = 5
+HEAT_MIN_SHARE = 0.02  # below this share of visits a move is noise on the heatmap
 STAR_POINTS = [(2, 2), (6, 2), (4, 4), (2, 6), (6, 6)]
 
 
@@ -30,22 +31,23 @@ def _center(col: int, lin: int) -> tuple[int, int]:
 
 
 def _draw_heat(image: Image.Image, heat: dict[int, float]) -> Image.Image:
-    """Red discs sized and shaded by each move's share of the search visits."""
+    """Red discs sized and shaded by each move's share of the search visits (rare moves are hidden)."""
     peak = max(heat.values(), default=0.0)
     if peak <= 0:
         return image
     overlay = Image.new("RGBA", image.size, (0, 0, 0, 0))
     draw = ImageDraw.Draw(overlay)
     for move, share in heat.items():
-        if move == -1 or share <= 0:
+        if move == -1 or share < HEAT_MIN_SHARE:
             continue
         x, y = _center(*Board.unflatten(move))
         rel = share / peak
-        radius = int(6 + 14 * rel)
-        draw.ellipse((x - radius, y - radius, x + radius, y + radius), fill=(*RED, int(40 + 210 * rel)))
+        radius = int(8 + 12 * rel ** 0.5)
+        draw.ellipse((x - radius, y - radius, x + radius, y + radius), fill=(*RED, int(70 + 180 * rel)))
     image = Image.alpha_composite(image.convert("RGBA"), overlay).convert("RGB")
     draw = ImageDraw.Draw(image)
-    top = sorted(((share, move) for move, share in heat.items() if move != -1), reverse=True)[:3]
+    top = sorted(((share, move) for move, share in heat.items() if move != -1 and share >= HEAT_MIN_SHARE),
+                 reverse=True)[:3]
     for share, move in top:
         x, y = _center(*Board.unflatten(move))
         draw.text((x, y), f"{share:.0%}", anchor="mm", fill="white", font=_font(12), stroke_width=2, stroke_fill="black")

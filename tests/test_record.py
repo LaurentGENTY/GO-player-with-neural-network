@@ -50,3 +50,11 @@ def test_write_media(tmp_path):
     gif, mp4 = write_media(frames, [600, 600, 3000], tmp_path / "clip")
     assert Image.open(gif).n_frames == 3
     assert mp4.stat().st_size > 0
+
+
+def test_heatmap_hides_rarely_visited_points():
+    board = board_with(CAPTURE_SETUP)
+    a1 = Board.name_to_flat("A1")
+    image = render_frame(board, "A vs B", "thinking", None, None, heat={Board.name_to_flat("E6"): 0.6, a1: 0.01})
+    x, y = _center(0, 0)
+    assert image.getpixel((x + 5, y - 5)) == (220, 179, 92)  # 1 % of visits: not drawn
