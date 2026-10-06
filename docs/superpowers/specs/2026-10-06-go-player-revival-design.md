@@ -42,11 +42,12 @@ L'histoire racontée : *« même réseau, meilleure recherche : Alpha-Beta 2020 
 1. `MaxMin` appelle `self._NNboard.push` au lieu de `pop` après l'exploration (code MinMax, non utilisé par défaut).
 2. `IterativeDeepening` choisit le meilleur score **toutes profondeurs confondues** au lieu de garder le résultat de la dernière profondeur terminée.
 3. Chemins relatifs au répertoire courant (`./model.json`, `games.json`).
+4. **`NNboard` ne retire jamais les pierres capturées** : `push` pose seulement la pierre jouée. Après chaque capture, le réseau évalue donc une position fausse (pierres « fantômes »).
 
 ## 3. Architecture
 
 ```
-pyproject.toml          # uv, Python 3.12; deps: numpy, tensorflow, h5py, cairosvg, pillow, imageio(+ffmpeg)
+pyproject.toml          # uv, Python 3.12; deps: numpy, tensorflow, h5py, pillow, imageio[ffmpeg]
 go_player/
   goban.py              # Board from GO/Goban.py + configurable komi (default 0 = 2020 behavior)
   nn.py                 # ValueNet: rebuilds the 2020 CNN in Keras 3, loads model.h5 weights, batched predict
@@ -57,7 +58,7 @@ go_player/
     gnugo.py            # GTP bridge (from GO/GnuGo.py + GO/gnugoPlayer.py)
     random_player.py
   arena.py              # N games A vs B, alternating colors -> results table
-  record.py             # one game -> SVG frames -> PNG -> GIF + MP4, with overlay
+  record.py             # one game -> Pillow frames -> GIF + MP4, with overlay
   cli.py                # `go-player play|arena|record ...`
   assets/               # model.h5, games.json (copies of the 2020 files)
 tests/
@@ -81,7 +82,7 @@ Principes :
 | `players.alphabeta.AlphaBetaPlayer` | Joueur 2020 corrigé | `PlayerInterface` + `AlphaBetaPlayer(value_net, time_budget=5.0, seed=None, opening_book=True)` | goban, nn |
 | `players.gnugo.GnuGoPlayer` | Adversaire de référence | `PlayerInterface` + `GnuGoPlayer(level=1)` | binaire `gnugo` |
 | `arena` | Matchs et statistiques | `run_match(factory_a, factory_b, games, seed) -> MatchResult` ; `write_report(results, dir)` | goban, players |
-| `record` | Une partie → GIF/MP4 | `record_game(black, white, out_stem, value_net=None, seed=None)` | goban, cairosvg, pillow, imageio |
+| `record` | Une partie → GIF/MP4 | `record_game(black, white, out_stem, value_net=None, komi=0.0)` | goban, arena, pillow, imageio |
 | `cli` | Point d'entrée `go-player` | sous-commandes `play`, `arena`, `record` | tout |
 
 ## 4. Flux de données
@@ -96,7 +97,7 @@ Principes :
 `RolloutEvaluator` : partie aléatoire avec `weak_legal_moves` jusqu'à la fin ou au plafond de coups, résultat 1 / 0 / 0.5. Il sert de **joueur de référence** pour mesurer ce qu'apporte le réseau.
 
 ### Encodage réseau
-`(9,9,2)` avec le plan 0 pour Noir et le plan 1 pour Blanc, selon la convention `[col][lin]` de 2020 (`Board.unflatten`). Il est recalculé à chaque feuille depuis le plateau. Le `NNboard` incrémental de 2020 ne sert plus au MCTS. L'Alpha-Beta corrigé peut le garder.
+`(9,9,2)` avec le plan 0 pour Noir et le plan 1 pour Blanc, selon la convention `[col][lin]` de 2020 (`Board.unflatten`). Il est recalculé à chaque feuille depuis le plateau. L'encodage est vectorisé (`board._board.reshape(9,9).T`), donc peu coûteux. Le `NNboard` incrémental de 2020 est **supprimé** partout, y compris dans l'Alpha-Beta, à cause du bug n°4.
 
 ### Ouvertures
 Livre `games.json` sur les 5 premiers coups, comme en 2020. Activé par défaut et désactivable (`--no-book`) pour les deux joueurs IA.
@@ -112,12 +113,12 @@ Livre `games.json` sur les 5 premiers coups, comme en 2020. Activé par défaut 
   3. chaque IA (MCTS-NN, AlphaBeta-2020) vs GnuGo niveau 1.
 
 ### Enregistrement
-1. Partie jouée, puis un SVG par position (`Board.svg()`).
+1. Partie jouée via `arena.play_game`, puis rejouée coup par coup ; chaque position est dessinée avec **Pillow** (448×528 px, multiple de 16 pour le MP4). `cairosvg` est écarté : il ne trouve pas la `libcairo` de Homebrew sur macOS sans bricolage de `DYLD_*`.
 2. Surcouche :
    - bandeau avec les noms des joueurs et le numéro du coup ;
    - cercle sur le dernier coup ;
    - barre « P(Noir gagne) » calculée par `ValueNet` si disponible.
-3. cairosvg → PNG → GIF (~0,6 s par image, 3 s sur la dernière) + MP4.
+3. GIF (~0,6 s par image, 3 s sur la dernière) via Pillow + MP4 (libx264) via `imageio[ffmpeg]`.
 4. Fichiers produits : `media/<black>-vs-<white>.gif|mp4`.
 
 ### Komi
@@ -132,7 +133,6 @@ Défaut 0, fidèle au comportement 2020 et aux données d'entraînement du rése
 | Coup illégal d'un joueur | Il perd la partie (règle de `localGame.py`). L'incident est noté dans `MatchResult`. |
 | Budget de temps | Le MCTS vérifie l'horloge entre deux lots et s'arrête à 90 % du budget. Sans aucune simulation, il joue un coup légal au hasard. |
 | Partie trop longue | Plafond de 200 coups dans l'arène, la partie est alors comptée nulle. |
-| `cairo` absent | Message `brew install cairo`, uniquement lors de `record`. |
 
 ## 6. Tests (`pytest`, hors-ligne, en moins d'une minute hors tests GnuGo)
 
@@ -140,7 +140,7 @@ Défaut 0, fidèle au comportement 2020 et aux données d'entraînement du rése
 2. **Réseau** :
    - le chargement fonctionne ;
    - le plateau vide donne `≈ [0.60, 0.40]` (tolérance 0.01) ;
-   - une position tournée de 90° donne une valeur proche (écart absolu ≤ 0.05) ;
+   - une position tournée de 90° donne une valeur proche (écart absolu ≤ 0.1 ; mesuré : jusqu’à 0.07 sur une position de milieu de partie) ;
    - `predict` accepte des lots.
 3. **MCTS** :
    - trouve la capture évidente en un coup sur une position préparée ;
@@ -149,7 +149,7 @@ Défaut 0, fidèle au comportement 2020 et aux données d'entraînement du rése
    - donne un résultat reproductible avec une seed fixe (avec un nombre de simulations fixé plutôt qu'un temps fixé, pour être déterministe).
 4. **Alpha-Beta** :
    - même test de capture ;
-   - après `getPlayerMove`, l'encodage interne correspond exactement à `ValueNet.encode(board)`, ce qui couvre la dérive `push`/`pop`.
+   - l'évaluation après une capture correspond à `ValueNet.encode(board)` (les pierres capturées ont disparu), ce qui couvre le bug n°4.
 5. **Smoke tests** :
    - arène : 2 parties random vs random avec un budget de 0,1 s ;
    - `record` : produit un GIF non vide.
