@@ -35,3 +35,13 @@ def test_bad_match_spec_exits_2():
     with pytest.raises(SystemExit) as exc:
         main(["arena", "--match", "random-random"])
     assert exc.value.code == 2
+
+
+def test_missing_gnugo_fails_before_any_game(monkeypatch, capsys):
+    from go_player.nn import ValueNet
+    from go_player.players import gnugo
+
+    monkeypatch.setattr(gnugo.shutil, "which", lambda name: None)
+    monkeypatch.setattr(ValueNet, "load", classmethod(lambda cls, *a: pytest.fail("network loaded before gnugo check")))
+    assert main(["arena", "--match", "mcts:random", "--match", "random:gnugo", "--games", "1"]) == 1
+    assert "brew install gnu-go" in capsys.readouterr().err

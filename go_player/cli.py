@@ -50,6 +50,12 @@ def _load_net(kinds, always: bool = False):
 
 
 def _run(args) -> int:
+    kinds = [k for pair in args.match or DEFAULT_MATCHES for k in pair] if args.command == "arena" \
+        else [args.black, args.white]
+    if "gnugo" in kinds:
+        from go_player.players.gnugo import find_gnugo
+        find_gnugo()  # fail before loading the network or playing hours of earlier matches
+
     def factory(kind, net):
         return lambda seed: make_player(kind, seed=seed, time_budget=args.time, komi=args.komi, value_net=net)
 

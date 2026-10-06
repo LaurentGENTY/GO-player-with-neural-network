@@ -18,11 +18,16 @@ def normalize_gtp_move(move: str) -> str:
     return "PASS" if move in ("PASS", "RESIGN") else move
 
 
+def find_gnugo() -> str:
+    exe = shutil.which("gnugo")
+    if exe is None:
+        raise GnuGoNotFound("gnugo not found in PATH. Install it with: brew install gnu-go")
+    return exe
+
+
 class GnuGoPlayer(PlayerInterface):
     def __init__(self, level: int = 1, komi: float = 0.0, name: str | None = None):
-        exe = shutil.which("gnugo")
-        if exe is None:
-            raise GnuGoNotFound("gnugo not found in PATH. Install it with: brew install gnu-go")
+        exe = find_gnugo()
         self._proc = subprocess.Popen(
             [exe, "--mode", "gtp", "--boardsize", str(Board._BOARDSIZE), "--chinese-rules",
              "--capture-all-dead", "--never-resign", "--level", str(level), "--komi", str(komi)],
